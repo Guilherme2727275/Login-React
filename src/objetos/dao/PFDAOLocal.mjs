@@ -1,100 +1,126 @@
 export default class PFDAO {
 
-  constructor(storageKey = "pessoasPF") {
-    this.storageKey = storageKey;
+  constructor() {
+    this.chave = "pessoasFisicas";
   }
 
+  // Recupera os registros armazenados
+  listar() {
+    try {
+      const dados = localStorage.getItem(this.chave);
+
+      return dados ? JSON.parse(dados) : [];
+
+    } catch (e) {
+      console.error("Erro ao ler PF:", e);
+      return [];
+    }
+  }
+
+  // Gera um identificador para o registro
+  gerarId() {
+    return (
+      Date.now().toString(36) +
+      Math.random().toString(36).substring(2, 9)
+    );
+  }
+
+  // Converte a instância de PF em objeto simples
+  toPlain(pf) {
+
+    if (!pf) return {};
+
+    const end = pf.getEndereco?.();
+    const titulo = pf.getTitulo?.();
+    const telefones = pf.getTelefones?.() || [];
+
+    return {
+      id: pf.id ?? this.gerarId(),
+
+      nome: pf.getNome?.(),
+      email: pf.getEmail?.(),
+      cpf: pf.getCPF?.(),
+
+      endereco: end
+        ? {
+            cep: end.getCep?.(),
+            logradouro: end.getLogradouro?.(),
+            bairro: end.getBairro?.(),
+            cidade: end.getCidade?.(),
+            uf: end.getUf?.(),
+            regiao: end.getRegiao?.(),
+          }
+        : {},
+
+      telefones: telefones.map((t) => ({
+        ddd: t.getDdd?.(),
+        numero: t.getNumero?.(),
+      })),
+
+      titulo: titulo
+        ? {
+            numero: titulo.getNumero?.(),
+            zona: titulo.getZona?.(),
+            secao: titulo.getSecao?.(),
+          }
+        : {},
+    };
+  }
+
+  // CREATE: cadastra uma pessoa física
   salvar(pf) {
 
     const lista = this.listar();
+    const obj = this.toPlain(pf);
 
-    const end = pf.getEndereco();
-
-    const objEndereco = end ? {
-
-      cep: end.getCep(),
-      logradouro: end.getLogradouro(),
-      bairro: end.getBairro(),
-      cidade: end.getCidade(),
-      uf: end.getUf(),
-      regiao: end.getRegiao()
-
-    } : null;
-
-    const telefones =
-      (pf.getTelefones() || []).map(
-        f => ({
-
-          ddd: f.getDdd(),
-          numero: f.getNumero()
-
-        })
-      );
-
-    const titulo =
-      pf.getTitulo() ? {
-
-        numero:
-          pf.getTitulo().getNumero(),
-
-        zona:
-          pf.getTitulo().getZona(),
-
-        secao:
-          pf.getTitulo().getSecao()
-
-      } : null;
-
-    const obj = {
-
-      nome: pf.getNome(),
-      email: pf.getEmail(),
-      cpf: pf.getCPF(),
-      endereco: objEndereco,
-      telefones,
-      titulo
-
-    };
+    if (!obj.id) {
+      obj.id = this.gerarId();
+    }
 
     lista.push(obj);
 
     localStorage.setItem(
-      this.storageKey,
+      this.chave,
       JSON.stringify(lista)
     );
 
     return obj;
   }
 
-  listar() {
+  // UPDATE: atualiza uma pessoa física
+  atualizar(id, novoPF) {
 
-    const dados =
-      localStorage.getItem(
-        this.storageKey
-      );
+    const lista = this.listar();
+    const obj = this.toPlain(novoPF);
 
-    return dados
-      ? JSON.parse(dados)
-      : [];
-  }
+    obj.id = id;
 
-  excluir(cpf) {
+    const idx = lista.findIndex(
+      (p) => p.id === id
+    );
 
-    const lista =
-      this.listar().filter(
-        p => p.cpf !== cpf
-      );
+    if (idx >= 0) {
+      lista[idx] = obj;
+    } else {
+      lista.push(obj);
+    }
 
     localStorage.setItem(
-      this.storageKey,
+      this.chave,
       JSON.stringify(lista)
     );
   }
 
-  limpar() {
+  // DELETE: exclui uma pessoa física
+  excluir(id) {
 
-    localStorage.removeItem(
-      this.storageKey
+    const novaLista = this.listar().filter(
+      (p) => p.id !== id
+    );
+
+    localStorage.setItem(
+      this.chave,
+      JSON.stringify(novaLista)
     );
   }
 }
